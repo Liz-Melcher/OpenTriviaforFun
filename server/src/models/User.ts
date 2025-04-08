@@ -1,73 +1,73 @@
-import { isString } from 'jet-validators';
-import { parseObject, TParseOnError } from 'jet-validators/utils';
+import { DataTypes, Sequelize, Model, Optional } from 'sequelize';
+import bcrypt from 'bcrypt';
 
-import { isRelationalKey, transIsDate } from '@src/util/validators';
-
-
-/******************************************************************************
-                                 Variables
-******************************************************************************/
-
-const DEFAULT_USER_VALS = (): IUser => ({
-  id: -1,
-  name: '',
-  created: new Date(),
-  email: '',
-});
-
-
-/******************************************************************************
-                                  Types
-******************************************************************************/
-
-export interface IUser {
+// Define the attributes for the User model
+interface UserAttributes {
   id: number;
-  name: string;
+  username: string;
   email: string;
-  created: Date;
+  password: string;
 }
 
+// Define the optional attributes for creating a new User
+interface UserCreationAttributes extends Optional<UserAttributes, 'id'> {}
 
-/******************************************************************************
-                                 Functions
-******************************************************************************/
+// Define the User class extending Sequelize's Model
+export class User extends Model<UserAttributes, UserCreationAttributes> implements UserAttributes {
+  public id!: number;
+  public username!: string;
+  public email!: string;
+  public password!: string;
 
-// Initialize the parse function
-const parseUser = parseObject<IUser>({
-  id: isRelationalKey,
-  name: isString,
-  email: isString,
-  created: transIsDate,
-});
+  public readonly createdAt!: Date;
+  public readonly updatedAt!: Date;
 
-
-/******************************************************************************
-                                 Functions
-******************************************************************************/
-
-/**
- * New user object.
- */
-function newUser(user?: Partial<IUser>): IUser {
-  const retVal = { ...DEFAULT_USER_VALS(), ...user };
-  return parseUser(retVal, errors => {
-    throw new Error('Setup new user failed ' + JSON.stringify(errors, null, 2));
-  });
+  // Method to hash and set the password for the user
+  public async setPassword(password: string) {
+    const saltRounds = 10;
+    this.password = await bcrypt.hash(password, saltRounds);
+  }
 }
 
-/**
- * Check is a user object. For the route validation.
- */
-function testUser(arg: unknown, errCb?: TParseOnError): arg is IUser {
-  return !!parseUser(arg, errCb);
+// Define the UserFactory function to initialize the User model
+export function UserFactory(sequelize: Sequelize): typeof User {
+  User.init(
+    {
+      id: {
+        type: DataTypes.INTEGER,
+        autoIncrement: true,
+        primaryKey: true,
+      },
+      username: {
+        type: DataTypes.STRING,
+        allowNull: false,
+      },
+      email: {
+        type: DataTypes.STRING,
+        allowNull: false,
+      },
+      password: {
+        type: DataTypes.STRING,
+        allowNull: false,
+      },
+    },
+    {
+      tableName: 'users',  // Name of the table in PostgreSQL
+      sequelize,            // The Sequelize instance that connects to PostgreSQL
+      hooks: {
+        // Before creating a new user, hash and set the password
+        beforeCreate: async (user: User) => {
+          await user.setPassword(user.password);
+        },
+        // Before updating a user, hash and set the new password if it has changed
+        beforeUpdate: async (user: User) => {
+          if (user.changed('password')) {
+            await user.setPassword(user.password);
+          }
+        },
+      }
+    }
+  );
+
+  return User;  // Return the initialized User model
 }
-
-
-/******************************************************************************
-                                Export default
-******************************************************************************/
-
-export default {
-  new: newUser,
-  test: testUser,
-} as const;

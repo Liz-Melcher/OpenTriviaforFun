@@ -1,33 +1,11 @@
 import { Router } from 'express';
+import authRoutes from './auth-routes.js';
+import apiRoutes from './api/index.js';
+import { authenticateToken } from '../middleware/auth.js';
 
-import Paths from '../common/Paths';
-import UserRoutes from './UserRoutes';
+const router = Router();
 
+router.use('/auth', authRoutes);
+router.use('/api', authenticateToken, apiRoutes);
 
-/******************************************************************************
-                                Variables
-******************************************************************************/
-
-const apiRouter = Router();
-
-
-// ** Add UserRouter ** //
-
-// Init router
-const userRouter = Router();
-
-// Get all users
-userRouter.get(Paths.Users.Get, UserRoutes.getAll);
-userRouter.post(Paths.Users.Add, UserRoutes.add);
-userRouter.put(Paths.Users.Update, UserRoutes.update);
-userRouter.delete(Paths.Users.Delete, UserRoutes.delete);
-
-// Add UserRouter
-apiRouter.use(Paths.Users.Base, userRouter);
-
-
-/******************************************************************************
-                                Export default
-******************************************************************************/
-
-export default apiRouter;
+export default router;
