@@ -5,12 +5,17 @@ import {
   createUser,
   updateUser,
   deleteUser,
-} from '../../controllers/user-controller.js';
+  loginUser,
+} from '../../controllers/user-controller.ts';
 
 const router = express.Router();
 
 // GET /users - Get all users
 router.get('/', getAllUsers);
+
+// POST /users/login - Log in a user
+router.post('/login', loginUser);
+
 
 // GET /users/:id - Get a user by id
 router.get('/:id', getUserById);

@@ -1,7 +1,9 @@
-import { Request, Response } from 'express';
-import { User } from '../models/user.js';
+import type { Request, Response } from 'express';
+import bcrypt from 'bcrypt';
+import jwt from 'jsonwebtoken';
+import { User } from '../models/user.ts';
 
-// GET /Users
+// GET /users
 export const getAllUsers = async (_req: Request, res: Response) => {
   try {
     const users = await User.findAll({
@@ -13,7 +15,7 @@ export const getAllUsers = async (_req: Request, res: Response) => {
   }
 };
 
-// GET /Users/:id
+// GET /users/:id
 export const getUserById = async (req: Request, res: Response) => {
   const { id } = req.params;
   try {
@@ -30,9 +32,9 @@ export const getUserById = async (req: Request, res: Response) => {
   }
 };
 
-// POST /Users
+// POST /users
 export const createUser = async (req: Request, res: Response) => {
-  const { username, password } = req.body;
+  const { username, password, email } = req.body;
   try {
     const newUser = await User.create({ username, password });
     res.status(201).json(newUser);
@@ -41,7 +43,7 @@ export const createUser = async (req: Request, res: Response) => {
   }
 };
 
-// PUT /Users/:id
+// PUT /users/:id
 export const updateUser = async (req: Request, res: Response) => {
   const { id } = req.params;
   const { username, password } = req.body;
@@ -60,7 +62,7 @@ export const updateUser = async (req: Request, res: Response) => {
   }
 };
 
-// DELETE /Users/:id
+// DELETE /users/:id
 export const deleteUser = async (req: Request, res: Response) => {
   const { id } = req.params;
   try {
@@ -75,3 +77,32 @@ export const deleteUser = async (req: Request, res: Response) => {
     res.status(500).json({ message: error.message });
   }
 };
+
+// POST /users/login
+export const loginUser = async (req: Request, res: Response) => {
+  const { username, password } = req.body;
+  try {
+    const user = await User.findOne({ where: { username } });
+    if (!user) {
+      return res.status(401).json({ message: 'Invalid username or password' });
+    }
+
+    const isValid = await bcrypt.compare(password, user.password);
+    if (!isValid) {
+      return res.status(401).json({ message: 'Invalid username or password' });
+    }
+
+    const token = jwt.sign(
+      { id: user.id, username: user.username },
+      process.env.JWT_SECRET as string,
+      { expiresIn: '1h' }
+    );
+
+    res.json({ token });
+    return; // 👈 satisfies TS
+  } catch (error: any) {
+    res.status(500).json({ message: error.message });
+    return; // 👈 satisfies TS here too
+  }
+};
+
